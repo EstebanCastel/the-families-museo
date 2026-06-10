@@ -12,6 +12,11 @@ export default function LoadingOverlay() {
       return () => clearTimeout(t);
     }
   }, [progress]);
+  // Seguridad: ocultar pase lo que pase a los 5s para no bloquear el clic
+  useEffect(() => {
+    const t = setTimeout(() => setHidden(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
   if (hidden) return null;
   return (
     <div

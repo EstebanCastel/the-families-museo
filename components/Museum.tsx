@@ -17,7 +17,6 @@ import {
 import { EffectComposer, Bloom, Vignette, SMAA } from "@react-three/postprocessing";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import gsap from "gsap";
 import { exhibits, wallArt, sculptures, type Exhibit, type Sculpture as SculptureT } from "@/lib/products";
 
 const H = 6;
@@ -30,23 +29,52 @@ const MARBLE = "#e7e3da";
 const FOG = "#e3e0d8";
 
 /* ─────────── Texturas procedurales ─────────── */
-type Tex = { plaster: THREE.Texture; bump: THREE.Texture; floor: THREE.Texture; rug: THREE.Texture };
+type Tex = {
+  plaster: THREE.Texture; bump: THREE.Texture; floor: THREE.Texture; rug: THREE.Texture;
+  stone: THREE.Texture; stoneBump: THREE.Texture; ceiling: THREE.Texture;
+};
 let _TEX: Tex | null = null;
-function paint(base: string, patch: number, grain: number, seams: boolean, size = 512): THREE.CanvasTexture {
+
+type PaintOpts = { patch?: number; grain?: number; seams?: boolean; veins?: string; coffer?: boolean; size?: number };
+
+function paint(base: string, o: PaintOpts = {}): THREE.CanvasTexture {
+  const size = o.size ?? 512, patch = o.patch ?? 0.12, grain = o.grain ?? 12;
   const c = document.createElement("canvas"); c.width = c.height = size;
   const x = c.getContext("2d")!; x.fillStyle = base; x.fillRect(0, 0, size, size);
-  for (let i = 0; i < 50; i++) {
-    const r = 16 + Math.random() * size * 0.24, gx = Math.random() * size, gy = Math.random() * size;
-    const g = x.createRadialGradient(gx, gy, 0, gx, gy, r);
-    const tone = Math.random() < 0.5 ? "255,255,255" : "0,0,0";
-    g.addColorStop(0, `rgba(${tone},${Math.random() * patch})`); g.addColorStop(1, `rgba(${tone},0)`);
-    x.fillStyle = g; x.fillRect(gx - r, gy - r, 2 * r, 2 * r);
+  const blob = (count: number, maxR: number, mul: number) => {
+    for (let i = 0; i < count; i++) {
+      const r = 8 + Math.random() * maxR, gx = Math.random() * size, gy = Math.random() * size;
+      const g = x.createRadialGradient(gx, gy, 0, gx, gy, r);
+      const tone = Math.random() < 0.5 ? "255,255,255" : "0,0,0";
+      g.addColorStop(0, `rgba(${tone},${Math.random() * patch * mul})`); g.addColorStop(1, `rgba(${tone},0)`);
+      x.fillStyle = g; x.fillRect(gx - r, gy - r, 2 * r, 2 * r);
+    }
+  };
+  blob(14, size * 0.5, 1.3);  // variación de gran escala
+  blob(46, size * 0.16, 1.0); // mediana
+  // vetas tipo travertino/mármol
+  if (o.veins) {
+    x.lineWidth = 1; x.strokeStyle = o.veins;
+    for (let i = 0; i < 26; i++) {
+      const y = Math.random() * size; x.beginPath(); x.moveTo(0, y);
+      for (let sx = 0; sx <= size; sx += 24) x.lineTo(sx, y + Math.sin(sx * 0.05 + i) * (3 + Math.random() * 5));
+      x.globalAlpha = 0.25 + Math.random() * 0.35; x.stroke(); x.globalAlpha = 1;
+    }
+    // pitting
+    x.fillStyle = "rgba(0,0,0,0.18)";
+    for (let i = 0; i < 120; i++) { x.beginPath(); x.arc(Math.random() * size, Math.random() * size, Math.random() * 1.6, 0, 6.28); x.fill(); }
   }
-  if (seams) { x.strokeStyle = "rgba(0,0,0,0.06)"; x.lineWidth = 2; for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo((i * size) / 4, 0); x.lineTo((i * size) / 4, size); x.stroke(); x.beginPath(); x.moveTo(0, (i * size) / 4); x.lineTo(size, (i * size) / 4); x.stroke(); } }
+  // artesonado del techo
+  if (o.coffer) {
+    x.strokeStyle = "rgba(0,0,0,0.18)"; x.lineWidth = 6; x.strokeRect(8, 8, size - 16, size - 16);
+    x.strokeStyle = "rgba(0,0,0,0.10)"; x.lineWidth = 3; x.strokeRect(26, 26, size - 52, size - 52);
+    x.strokeStyle = "rgba(255,255,255,0.25)"; x.lineWidth = 2; x.strokeRect(12, 12, size - 24, size - 24);
+  }
+  if (o.seams) { x.strokeStyle = "rgba(0,0,0,0.05)"; x.lineWidth = 1.5; for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo((i * size) / 4, 0); x.lineTo((i * size) / 4, size); x.stroke(); } }
   const img = x.getImageData(0, 0, size, size), d = img.data;
   for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * grain; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
   x.putImageData(img, 0, 0);
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   return t;
 }
 function paintRug(): THREE.CanvasTexture {
@@ -62,11 +90,15 @@ function paintRug(): THREE.CanvasTexture {
 }
 function textures(): Tex {
   if (_TEX) return _TEX;
-  const plaster = paint("#e8e4db", 0.10, 12, true);
-  const bump = paint("#808080", 0.4, 30, true, 256);
-  const floor = paint("#d6d2c8", 0.16, 10, false, 256);
-  plaster.repeat.set(2, 1.3); bump.repeat.set(2, 1.3); floor.repeat.set(7, 7);
-  _TEX = { plaster, bump, floor, rug: paintRug() };
+  const plaster = paint("#ece8df", { patch: 0.08, grain: 9, seams: true, size: 1024 });
+  const bump = paint("#808080", { patch: 0.35, grain: 26, seams: true, size: 512 });
+  const floor = paint("#d6d2c8", { patch: 0.16, grain: 10, size: 256 });
+  const stone = paint("#e3dccb", { patch: 0.14, grain: 8, veins: "#9d8e6e", size: 512 });
+  const stoneBump = paint("#808080", { patch: 0.5, grain: 30, veins: "#202020", size: 512 });
+  const ceiling = paint("#dcd8cd", { patch: 0.1, grain: 8, coffer: true, size: 512 });
+  plaster.repeat.set(2.2, 1.4); bump.repeat.set(2.2, 1.4); floor.repeat.set(7, 7);
+  stone.repeat.set(1, 2.5); stoneBump.repeat.set(1, 2.5); ceiling.repeat.set(6, 6);
+  _TEX = { plaster, bump, floor, rug: paintRug(), stone, stoneBump, ceiling };
   return _TEX;
 }
 
@@ -248,24 +280,26 @@ function CeilingLights() {
 }
 function Architecture({ low }: { low: boolean }) {
   const tx = textures();
-  const wallMat = useMemo(() => new THREE.MeshStandardMaterial({ map: tx.plaster, bumpMap: tx.bump, bumpScale: 0.02, color: new THREE.Color(WHITE), roughness: 0.7, metalness: 0, envMapIntensity: 0.4 }), [tx]);
-  const redMat = useMemo(() => new THREE.MeshStandardMaterial({ bumpMap: tx.bump, bumpScale: 0.02, color: new THREE.Color(RED), roughness: 0.55, metalness: 0, envMapIntensity: 0.5 }), [tx]);
+  const wallMat = useMemo(() => new THREE.MeshStandardMaterial({ map: tx.plaster, bumpMap: tx.bump, bumpScale: 0.025, color: new THREE.Color(WHITE), roughness: 0.72, metalness: 0, envMapIntensity: 0.4 }), [tx]);
+  const redMat = useMemo(() => new THREE.MeshStandardMaterial({ map: tx.plaster, bumpMap: tx.bump, bumpScale: 0.025, color: new THREE.Color(RED), roughness: 0.5, metalness: 0, envMapIntensity: 0.5 }), [tx]);
+  const stoneMat = useMemo(() => new THREE.MeshStandardMaterial({ map: tx.stone, bumpMap: tx.stoneBump, bumpScale: 0.04, color: new THREE.Color("#efe9da"), roughness: 0.45, metalness: 0.05, envMapIntensity: 0.9 }), [tx]);
+  const ceilMat = useMemo(() => new THREE.MeshStandardMaterial({ map: tx.ceiling, bumpMap: tx.ceiling, bumpScale: 0.05, color: new THREE.Color("#d7d2c6"), roughness: 0.95, metalness: 0 }), [tx]);
   const beams: { pos: [number, number, number]; size: [number, number, number] }[] = [];
   for (const z of [-3, -8, -14, -20, -26, -32]) beams.push({ pos: [0, H - 0.25, z], size: [16, 0.45, 0.5] });
   for (const x of [-18, -13, 13, 18]) beams.push({ pos: [x, H - 0.25, -11], size: [0.5, 0.45, 14] });
   return (
     <group>
       <Floor low={low} />
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, H, -17]}><planeGeometry args={[44, 40]} /><meshStandardMaterial color="#dedacf" roughness={1} /></mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, H, -17]} material={ceilMat}><planeGeometry args={[44, 40]} /></mesh>
       {beams.map((b, i) => <mesh key={i} position={b.pos}><boxGeometry args={b.size} /><meshStandardMaterial color="#cbc6bb" roughness={0.9} /></mesh>)}
       <CeilingLights />
       {WALLS.map((s, i) => <Wall key={i} seg={s} mat={wallMat} redMat={redMat} />)}
       <DoorFrame x={0} z={-22} w={4} /><DoorFrame x={-8} z={-11} w={4} vert /><DoorFrame x={8} z={-11} w={4} vert />
       {COLUMNS.map(([x, z], i) => (
         <group key={i} position={[x, 0, z]}>
-          <mesh position={[0, H / 2, 0]} material={wallMat}><boxGeometry args={[0.8, H, 0.8]} /></mesh>
-          <mesh position={[0, 0.18, 0]}><boxGeometry args={[1.15, 0.36, 1.15]} /><meshStandardMaterial color={TRIM} roughness={0.5} /></mesh>
-          <mesh position={[0, H - 0.18, 0]}><boxGeometry args={[1.15, 0.36, 1.15]} /><meshStandardMaterial color={WHITE_HI} roughness={0.8} /></mesh>
+          <mesh position={[0, H / 2, 0]} material={stoneMat} castShadow><boxGeometry args={[0.82, H, 0.82]} /></mesh>
+          <mesh position={[0, 0.2, 0]} material={stoneMat}><boxGeometry args={[1.15, 0.4, 1.15]} /></mesh>
+          <mesh position={[0, H - 0.2, 0]} material={stoneMat}><boxGeometry args={[1.15, 0.4, 1.15]} /></mesh>
         </group>
       ))}
       {([[3.5, -13], [-3.5, -25], [-17, -7], [17, -16]] as [number, number][]).map(([x, z], i) => (
@@ -388,22 +422,9 @@ function Signage() {
     </group>
   );
 }
-function Intro({ onDone }: { onDone: () => void }) {
-  const { camera } = useThree();
-  useEffect(() => {
-    camera.position.set(0, 2.1, -0.6);
-    camera.lookAt(0, 1.7, -16);
-    const tl = gsap.timeline({ onComplete: onDone });
-    tl.to(camera.position, { z: -8, y: 1.65, duration: 3.4, ease: "power2.inOut" });
-    return () => { tl.kill(); };
-  }, [camera, onDone]);
-  return null;
-}
-
 function Scene({ onActive, activeId, low }: { onActive: (e: Exhibit | null) => void; activeId: string | null; low: boolean }) {
   const { scene, camera } = useThree();
   const targetRef = useRef<THREE.Vector3 | null>(null);
-  const [ready, setReady] = useState(low); // móvil: listo de inmediato; escritorio: tras la intro
   useEffect(() => {
     scene.fog = new THREE.FogExp2(FOG, 0.013);
     scene.background = new THREE.Color(FOG);
@@ -440,14 +461,8 @@ function Scene({ onActive, activeId, low }: { onActive: (e: Exhibit | null) => v
         </>
       ) : (
         <>
-          {ready ? (
-            <>
-              <Player onActive={onActive} />
-              <PointerLockControls makeDefault />
-            </>
-          ) : (
-            <Intro onDone={() => setReady(true)} />
-          )}
+          <Player onActive={onActive} />
+          <PointerLockControls makeDefault />
           <EffectComposer multisampling={0}>
             <Bloom luminanceThreshold={0.72} luminanceSmoothing={0.3} intensity={0.55} mipmapBlur radius={0.6} />
             <Vignette offset={0.32} darkness={0.5} eskil={false} />
