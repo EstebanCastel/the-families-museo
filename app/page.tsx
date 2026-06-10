@@ -60,13 +60,13 @@ export default function Page() {
           <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-5 py-4 md:px-8">
             <span className="kicker text-[var(--paper)]/70">The Families · El Museo</span>
             <span className="kicker hidden text-[var(--paper)]/60 md:inline">
-              Sala II — La Colección
+              Atrio · Galerías · Sala del Fondo
             </span>
           </div>
           <div className="pointer-events-none absolute bottom-5 left-1/2 z-20 -translate-x-1/2 text-center">
             <p className="kicker text-[var(--paper)]/55">
-              <span className="hidden md:inline">Haz clic para mirar · W A S D para caminar · acércate a una prenda</span>
-              <span className="md:hidden">Arrastra para mirar el espacio</span>
+              <span className="hidden md:inline">Clic para mirar · W A S D caminar · Shift correr · cruza las puertas y acércate a las prendas</span>
+              <span className="md:hidden">Arrastra para mirar el museo</span>
             </p>
           </div>
           {/* Retícula */}
