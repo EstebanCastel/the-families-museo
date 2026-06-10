@@ -14,7 +14,7 @@ import {
 import { EffectComposer, Bloom, Vignette, SMAA } from "@react-three/postprocessing";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { exhibits, wallArt, type Exhibit } from "@/lib/products";
+import { exhibits, wallArt, sculptures, type Exhibit, type Sculpture as SculptureT } from "@/lib/products";
 
 const H = 6;
 const T = 0.4;
@@ -22,8 +22,33 @@ const TRIM = "#1a1916";
 const STONE_HI = "#bdb9b0";
 
 /* ─────────── Texturas procedurales de concreto ─────────── */
-type Tex = { wallMap: THREE.Texture; wallBump: THREE.Texture; floorRough: THREE.Texture };
+type Tex = { wallMap: THREE.Texture; wallBump: THREE.Texture; floorRough: THREE.Texture; rug: THREE.Texture };
 let _TEX: Tex | null = null;
+
+function paintRug(): THREE.CanvasTexture {
+  const s = 256;
+  const c = document.createElement("canvas");
+  c.width = c.height = s;
+  const x = c.getContext("2d")!;
+  x.fillStyle = "#3a1815";
+  x.fillRect(0, 0, s, s);
+  // grano
+  const img = x.getImageData(0, 0, s, s);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * 18; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  x.putImageData(img, 0, 0);
+  // bordes concéntricos
+  x.strokeStyle = "rgba(190,150,120,0.35)"; x.lineWidth = 4;
+  [18, 30, 46].forEach((m) => x.strokeRect(m, m, s - 2 * m, s - 2 * m));
+  x.strokeStyle = "rgba(20,8,6,0.5)"; x.lineWidth = 2;
+  x.strokeRect(24, 24, s - 48, s - 48);
+  // medallón central
+  x.strokeStyle = "rgba(180,140,110,0.3)"; x.lineWidth = 2;
+  x.beginPath(); x.moveTo(s / 2, s / 2 - 40); x.lineTo(s / 2 + 40, s / 2); x.lineTo(s / 2, s / 2 + 40); x.lineTo(s / 2 - 40, s / 2); x.closePath(); x.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 8;
+  return t;
+}
 
 function paintConcrete(base: string, patch: number, grain: number, seams: boolean): THREE.CanvasTexture {
   const s = 512;
@@ -81,7 +106,7 @@ function textures(): Tex {
   wallMap.repeat.set(2.5, 1.6);
   wallBump.repeat.set(2.5, 1.6);
   floorRough.repeat.set(7, 7);
-  _TEX = { wallMap, wallBump, floorRough };
+  _TEX = { wallMap, wallBump, floorRough, rug: paintRug() };
   return _TEX;
 }
 
@@ -107,6 +132,13 @@ const COLLIDERS: Box[] = [
       : { minX: Math.min(x1, x2), maxX: Math.max(x1, x2), minZ: z1 - T / 2, maxZ: z1 + T / 2 };
   }),
   ...COLUMNS.map(([x, z]): Box => ({ minX: x - 0.45, maxX: x + 0.45, minZ: z - 0.45, maxZ: z + 0.45 })),
+  // vitrinas (prendas)
+  ...exhibits.map((e): Box => {
+    const [x, z] = e.position; const h = e.hero ? 1.2 : 0.95;
+    return { minX: x - h, maxX: x + h, minZ: z - h, maxZ: z + h };
+  }),
+  // esculturas
+  ...sculptures.map((s): Box => ({ minX: s.pos[0] - 0.85, maxX: s.pos[0] + 0.85, minZ: s.pos[1] - 0.85, maxZ: s.pos[1] + 0.85 })),
 ];
 
 function resolveCollisions(pos: THREE.Vector3, r: number) {
@@ -280,12 +312,18 @@ function Architecture() {
       ))}
 
       {/* Bancas de galería */}
-      {([[0, -11], [0, -27], [-14, -7], [14, -7]] as [number, number][]).map(([x, z], i) => (
+      {([[3.5, -13], [-3.5, -25], [-17, -7], [17, -16]] as [number, number][]).map(([x, z], i) => (
         <group key={i} position={[x, 0, z]}>
           <mesh position={[0, 0.26, 0]} castShadow><boxGeometry args={[1.8, 0.12, 0.7]} /><meshStandardMaterial color="#15110d" roughness={0.4} metalness={0.1} /></mesh>
           <mesh position={[0, 0.13, 0]}><boxGeometry args={[1.6, 0.26, 0.5]} /><meshStandardMaterial color="#0b0b0b" roughness={0.6} /></mesh>
         </group>
       ))}
+
+      {/* Alfombras */}
+      <Rug pos={[0, -11]} size={[3.8, 19]} />
+      <Rug pos={[-14, -11]} size={[8, 11]} />
+      <Rug pos={[14, -11]} size={[8, 11]} />
+      <Rug pos={[0, -28]} size={[9.5, 9]} />
     </group>
   );
 }
@@ -349,8 +387,9 @@ function Vitrine({ exhibit, active }: { exhibit: Exhibit; active: boolean }) {
   const baseW = exhibit.hero ? 2.2 : 1.5;
   const glassTop = baseH + ph + 0.3;
   const [x, z] = exhibit.position;
+  const rotY = exhibit.hero ? 0 : (((x * 1.7 + z * 0.9) % 1) + 1) % 1 * 0.7 - 0.35;
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, 0, z]} rotation={[0, rotY, 0]}>
       <mesh position={[0, baseH / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[baseW, baseH, baseW]} />
         <meshStandardMaterial color="#0d0d0d" roughness={0.4} metalness={0.2} />
@@ -372,6 +411,56 @@ function Vitrine({ exhibit, active }: { exhibit: Exhibit; active: boolean }) {
         {exhibit.title.toUpperCase()}
       </Text>
     </group>
+  );
+}
+
+/* ─────────── Esculturas 3D ─────────── */
+function Sculpture({ s }: { s: SculptureT }) {
+  const [x, z] = s.pos;
+  const marble = useMemo(() => new THREE.MeshStandardMaterial({ color: "#d9d5cc", roughness: 0.4, metalness: 0.05 }), []);
+  const bronze = useMemo(() => new THREE.MeshStandardMaterial({ color: "#8c7853", roughness: 0.42, metalness: 0.2 }), []);
+  const stone = useMemo(() => new THREE.MeshStandardMaterial({ color: "#4c4842", roughness: 0.95, metalness: 0, flatShading: true }), []);
+
+  let form: React.ReactNode = null;
+  if (s.type === "monolith")
+    form = <mesh position={[0, 1.6, 0]} rotation={[0, 0.15, 0.06]} material={stone} castShadow><boxGeometry args={[0.85, 3.2, 0.4]} /></mesh>;
+  else if (s.type === "bust")
+    form = (
+      <group>
+        <mesh position={[0, 0.45, 0]} material={marble} castShadow><cylinderGeometry args={[0.5, 0.64, 0.85, 28]} /></mesh>
+        <mesh position={[0, 0.92, 0]} material={marble} castShadow><cylinderGeometry args={[0.16, 0.22, 0.22, 20]} /></mesh>
+        <mesh position={[0, 1.2, 0]} material={marble} castShadow><sphereGeometry args={[0.31, 32, 32]} /></mesh>
+      </group>
+    );
+  else if (s.type === "knot")
+    form = <mesh position={[0, 1.35, 0]} material={bronze} castShadow><torusKnotGeometry args={[0.52, 0.17, 180, 28]} /></mesh>;
+  else if (s.type === "stone")
+    form = <mesh position={[0, 0.95, 0]} rotation={[0.3, 0.5, 0.1]} material={stone} castShadow><icosahedronGeometry args={[0.95, 0]} /></mesh>;
+  else
+    form = <mesh position={[0, 1.0, 0]} rotation={[0.2, s.rotY ?? 0, 0]} material={marble} castShadow><dodecahedronGeometry args={[0.68, 0]} /></mesh>;
+
+  return (
+    <group position={[x, 0, z]} rotation={[0, s.rotY ?? 0, 0]} scale={s.scale ?? 1}>
+      <mesh position={[0, 0.35, 0]} castShadow receiveShadow><boxGeometry args={[1.4, 0.7, 1.4]} /><meshStandardMaterial color="#101010" roughness={0.5} metalness={0.12} /></mesh>
+      <mesh position={[0, 0.71, 0]}><boxGeometry args={[1.34, 0.04, 1.34]} /><meshStandardMaterial color="#1c1c1c" roughness={0.3} metalness={0.3} /></mesh>
+      <group position={[0, 0.73, 0]}>{form}</group>
+      {s.light && <SpotLight position={[0, 5.4, 0.3]} target-position={[0, 1.7, 0]} angle={0.46} penumbra={0.9} distance={8} intensity={42} color="#fff2e0" attenuation={6} anglePower={5} />}
+      {s.label && (
+        <Text position={[0, 0.95, 0.74]} fontSize={0.085} color="#b6b1a8" anchorX="center" anchorY="middle" maxWidth={1.25} textAlign="center">
+          {s.label.toUpperCase()}
+        </Text>
+      )}
+    </group>
+  );
+}
+
+function Rug({ pos, size, rotY = 0 }: { pos: [number, number]; size: [number, number]; rotY?: number }) {
+  const tx = textures();
+  return (
+    <mesh position={[pos[0], 0.02, pos[1]]} rotation={[-Math.PI / 2, 0, rotY]} receiveShadow>
+      <planeGeometry args={size} />
+      <meshStandardMaterial map={tx.rug} roughness={0.95} metalness={0} />
+    </mesh>
   );
 }
 
@@ -406,6 +495,7 @@ function Scene({ onActive, activeId, isTouch }: { onActive: (e: Exhibit | null) 
       <Skylight x={0} z={-7} />
       <Skylight x={0} z={-15} />
       <Skylight x={0} z={-29} />
+      {sculptures.map((s, i) => <Sculpture key={`s${i}`} s={s} />)}
       <Suspense fallback={null}>
         {wallArt.map((a, i) => <Artwork key={i} art={a} />)}
         {exhibits.map((e) => <Vitrine key={e.id} exhibit={e} active={activeId === e.id} />)}

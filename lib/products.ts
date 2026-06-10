@@ -30,7 +30,7 @@ export const exhibits: Exhibit[] = [
     image: "/looks/look-15.jpg",
     note: "Armadura para lo blando. Sostiene el cuerpo como un nombre sostiene a una persona.",
     wing: "Sala I · El Atrio",
-    position: [-4.5, -6],
+    position: [-4.8, -5.5],
   },
   {
     id: "fam-23-varsity",
@@ -40,7 +40,7 @@ export const exhibits: Exhibit[] = [
     image: "/looks/look-44.jpg",
     note: "El número veintitrés no pertenecía a ningún equipo. Lo guardamos como una pregunta.",
     wing: "Sala I · El Atrio",
-    position: [4.5, -6],
+    position: [4.6, -8.5],
   },
   {
     id: "tartan-salvage-denim",
@@ -50,7 +50,7 @@ export const exhibits: Exhibit[] = [
     image: "/looks/look-23.jpg",
     note: "Cada pierna carga una década distinta de denim. El volumen como protección.",
     wing: "Sala II · Galería Izquierda",
-    position: [-14, -11],
+    position: [-12.5, -8.5],
   },
   {
     id: "leopard-trapper",
@@ -60,7 +60,7 @@ export const exhibits: Exhibit[] = [
     image: "/looks/look-34.jpg",
     note: "Un rostro que se niega a ser un rostro. El anonimato es lo más íntimo que hacemos.",
     wing: "Sala II · Galería Derecha",
-    position: [14, -11],
+    position: [14.5, -13.5],
   },
   {
     id: "green-cross-balaclava",
@@ -70,8 +70,26 @@ export const exhibits: Exhibit[] = [
     image: "/looks/look-21.jpg",
     note: "Devoción sin iglesia. Llevamos nuestras preguntas sobre la fe como una familia lleva sus silencios.",
     wing: "Sala I · El Atrio",
-    position: [0, -17],
+    position: [1, -17.5],
   },
+];
+
+// Esculturas (arte 3D, no comprables) — dan cuerpo y rompen la simetría del museo.
+export type Sculpture = {
+  type: "monolith" | "bust" | "knot" | "stone" | "orb";
+  pos: [number, number];
+  scale?: number;
+  rotY?: number;
+  light?: boolean;
+  label?: string;
+};
+export const sculptures: Sculpture[] = [
+  { type: "monolith", pos: [-1.5, -11.5], scale: 1.05, rotY: 0.5, light: true, label: "Sin título (Familia)" },
+  { type: "stone", pos: [5.5, -19], scale: 1, rotY: 0.9 },
+  { type: "bust", pos: [-16, -15.5], scale: 1, rotY: -0.5, light: true, label: "Retrato anónimo" },
+  { type: "knot", pos: [16.5, -6.5], scale: 1, rotY: 0.3, light: true },
+  { type: "orb", pos: [-5, -31], scale: 0.9, rotY: 0 },
+  { type: "orb", pos: [5, -31], scale: 0.9, rotY: 1.2 },
 ];
 
 // Cuadros (fotografías de archivo) colgados en los muros — ambientales, no comprables.
