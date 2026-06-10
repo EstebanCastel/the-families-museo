@@ -222,9 +222,9 @@ function Floor({ low }: { low: boolean }) {
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -17]} receiveShadow>
       <planeGeometry args={[44, 40]} />
       {low ? (
-        <meshStandardMaterial map={tx.floor} color="#cfcabf" roughness={0.5} metalness={0.2} />
+        <meshStandardMaterial map={tx.floor} color="#d8d4ca" roughness={0.35} metalness={0.25} />
       ) : (
-        <MeshReflectorMaterial resolution={256} mirror={0.3} blur={[300, 90]} mixBlur={1.6} mixStrength={0.9} roughness={0.85} roughnessMap={tx.floor} depthScale={1} minDepthThreshold={0.4} maxDepthThreshold={1.3} color="#cfcabf" metalness={0.4} />
+        <MeshReflectorMaterial resolution={512} mirror={0.6} blur={[200, 60]} mixBlur={0.7} mixStrength={2.4} mixContrast={1.1} roughness={0.35} roughnessMap={tx.floor} depthScale={1.1} minDepthThreshold={0.3} maxDepthThreshold={1.2} color="#cdc8bd" metalness={0.6} />
       )}
     </mesh>
   );
@@ -248,8 +248,8 @@ function CeilingLights() {
 }
 function Architecture({ low }: { low: boolean }) {
   const tx = textures();
-  const wallMat = useMemo(() => new THREE.MeshStandardMaterial({ map: tx.plaster, bumpMap: tx.bump, bumpScale: 0.05, color: new THREE.Color(WHITE), roughness: 0.95, metalness: 0 }), [tx]);
-  const redMat = useMemo(() => new THREE.MeshStandardMaterial({ bumpMap: tx.bump, bumpScale: 0.05, color: new THREE.Color(RED), roughness: 0.85, metalness: 0 }), [tx]);
+  const wallMat = useMemo(() => new THREE.MeshStandardMaterial({ map: tx.plaster, bumpMap: tx.bump, bumpScale: 0.02, color: new THREE.Color(WHITE), roughness: 0.7, metalness: 0, envMapIntensity: 0.4 }), [tx]);
+  const redMat = useMemo(() => new THREE.MeshStandardMaterial({ bumpMap: tx.bump, bumpScale: 0.02, color: new THREE.Color(RED), roughness: 0.55, metalness: 0, envMapIntensity: 0.5 }), [tx]);
   const beams: { pos: [number, number, number]; size: [number, number, number] }[] = [];
   for (const z of [-3, -8, -14, -20, -26, -32]) beams.push({ pos: [0, H - 0.25, z], size: [16, 0.45, 0.5] });
   for (const x of [-18, -13, 13, 18]) beams.push({ pos: [x, H - 0.25, -11], size: [0.5, 0.45, 14] });
@@ -300,37 +300,59 @@ function Artwork({ art }: { art: (typeof wallArt)[number] }) {
     </group>
   );
 }
-function Vitrine({ exhibit, active }: { exhibit: Exhibit; active: boolean }) {
+function Vitrine({ exhibit, active, low }: { exhibit: Exhibit; active: boolean; low: boolean }) {
   const tex = useTexture(exhibit.image);
   useMemo(() => { tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; }, [tex]);
   const img = tex.image as { width?: number; height?: number } | undefined;
   const aspect = (img?.width ?? 3) / (img?.height ?? 4);
   const ph = exhibit.hero ? 2.7 : 2.0, pw = ph * aspect;
   const baseH = exhibit.hero ? 0.9 : 0.7, baseW = exhibit.hero ? 2.2 : 1.5;
-  const glassTop = baseH + ph + 0.3;
+  const caseW = baseW * 0.9, half = caseW / 2;
+  const caseH = ph + 0.5;
+  const glassTop = baseH + caseH;
   const [x, z] = exhibit.position;
   const rotY = exhibit.hero ? 0 : ((((x * 1.7 + z * 0.9) % 1) + 1) % 1) * 0.7 - 0.35;
+  const corners: [number, number][] = [[half, half], [half, -half], [-half, half], [-half, -half]];
+
   return (
     <group position={[x, 0, z]} rotation={[0, rotY, 0]}>
-      <mesh position={[0, baseH / 2, 0]} castShadow receiveShadow><boxGeometry args={[baseW, baseH, baseW]} /><meshStandardMaterial color={MARBLE} roughness={0.3} metalness={0.05} /></mesh>
-      <mesh position={[0, baseH + 0.01, 0]}><boxGeometry args={[baseW * 0.96, 0.04, baseW * 0.96]} /><meshStandardMaterial color="#15110d" roughness={0.3} metalness={0.3} /></mesh>
-      <mesh position={[0, baseH + ph / 2 + 0.1, 0]}><planeGeometry args={[pw, ph]} /><meshBasicMaterial map={tex} toneMapped={false} side={THREE.DoubleSide} /></mesh>
-      {/* foco emisivo del propio vitral (sin luz real) */}
-      <mesh position={[0, glassTop + 0.05, 0]}><boxGeometry args={[baseW * 0.5, 0.05, baseW * 0.5]} /><meshBasicMaterial color={active ? "#fff1da" : "#e7ddc9"} toneMapped={false} /></mesh>
-      <mesh position={[0, baseH + (glassTop - baseH) / 2, 0]}>
-        <boxGeometry args={[baseW * 0.92, glassTop - baseH, baseW * 0.92]} />
-        <meshPhysicalMaterial transparent opacity={active ? 0.12 : 0.06} roughness={0.06} metalness={0} transmission={0.5} color="#d6e2e4" depthWrite={false} />
+      {/* Pedestal de mármol */}
+      <mesh position={[0, baseH / 2, 0]} castShadow receiveShadow><boxGeometry args={[baseW, baseH, baseW]} /><meshPhysicalMaterial color={MARBLE} roughness={0.25} metalness={0.05} clearcoat={0.6} clearcoatRoughness={0.4} envMapIntensity={1} /></mesh>
+      <mesh position={[0, baseH + 0.015, 0]}><boxGeometry args={[caseW + 0.08, 0.05, caseW + 0.08]} /><meshStandardMaterial color="#11100e" roughness={0.35} metalness={0.6} envMapIntensity={1.2} /></mesh>
+
+      {/* Prenda suspendida */}
+      <mesh position={[0, baseH + caseH / 2, 0.001]}><planeGeometry args={[pw, ph]} /><meshBasicMaterial map={tex} toneMapped={false} side={THREE.DoubleSide} /></mesh>
+
+      {/* Marco metálico (latón) de la vitrina */}
+      {corners.map(([cx, cz], i) => (
+        <mesh key={i} position={[cx, baseH + caseH / 2, cz]}><boxGeometry args={[0.04, caseH, 0.04]} /><meshStandardMaterial color="#b08d57" metalness={1} roughness={0.28} envMapIntensity={1.4} /></mesh>
+      ))}
+      {([[0, half, caseW, 0], [0, -half, caseW, 0], [half, 0, 0, caseW], [-half, 0, 0, caseW]] as [number, number, number, number][]).map(([rx, rz, lx, lz], i) => (
+        <mesh key={`t${i}`} position={[rx, glassTop, rz]}><boxGeometry args={[lx || 0.04, 0.04, lz || 0.04]} /><meshStandardMaterial color="#b08d57" metalness={1} roughness={0.28} envMapIntensity={1.4} /></mesh>
+      ))}
+      {/* Tapa superior */}
+      <mesh position={[0, glassTop + 0.03, 0]}><boxGeometry args={[caseW + 0.06, 0.06, caseW + 0.06]} /><meshStandardMaterial color="#b08d57" metalness={1} roughness={0.3} envMapIntensity={1.4} /></mesh>
+
+      {/* Vidrio */}
+      <mesh position={[0, baseH + caseH / 2, 0]}>
+        <boxGeometry args={[caseW, caseH, caseW]} />
+        {low ? (
+          <meshStandardMaterial transparent opacity={0.16} roughness={0.08} metalness={0} color="#cfe0e2" envMapIntensity={1.5} depthWrite={false} />
+        ) : (
+          <meshPhysicalMaterial transmission={1} thickness={0.5} ior={1.5} roughness={0.04} metalness={0} transparent opacity={1} color="#f2f7f8" clearcoat={1} clearcoatRoughness={0.05} envMapIntensity={1.4} depthWrite={false} />
+        )}
       </mesh>
-      <Text position={[0, baseH + 0.2, baseW / 2 + 0.02]} fontSize={0.1} color={active ? "#111" : "#555"} anchorX="center" anchorY="middle" maxWidth={baseW * 0.9} textAlign="center">{exhibit.title.toUpperCase()}</Text>
+
+      <Text position={[0, baseH + 0.16, baseW / 2 + 0.02]} fontSize={0.095} color={active ? "#111" : "#555"} anchorX="center" anchorY="middle" maxWidth={baseW * 0.9} textAlign="center">{exhibit.title.toUpperCase()}</Text>
     </group>
   );
 }
 function Sculpture({ s }: { s: SculptureT }) {
   const [x, z] = s.pos;
-  const marble = useMemo(() => new THREE.MeshStandardMaterial({ color: "#eceae3", roughness: 0.32, metalness: 0.04 }), []);
-  const travertine = useMemo(() => new THREE.MeshStandardMaterial({ color: "#ddd6c8", roughness: 0.7, metalness: 0 }), []);
-  const bronze = useMemo(() => new THREE.MeshStandardMaterial({ color: "#9a7d4e", roughness: 0.35, metalness: 0.5 }), []);
-  const lacquer = useMemo(() => new THREE.MeshStandardMaterial({ color: RED, roughness: 0.18, metalness: 0.1 }), []);
+  const marble = useMemo(() => new THREE.MeshPhysicalMaterial({ color: "#eceae3", roughness: 0.22, metalness: 0.02, clearcoat: 0.8, clearcoatRoughness: 0.3, envMapIntensity: 1.2 }), []);
+  const travertine = useMemo(() => new THREE.MeshStandardMaterial({ color: "#ddd6c8", roughness: 0.6, metalness: 0, envMapIntensity: 0.9 }), []);
+  const bronze = useMemo(() => new THREE.MeshStandardMaterial({ color: "#a07f48", roughness: 0.25, metalness: 1, envMapIntensity: 1.6 }), []);
+  const lacquer = useMemo(() => new THREE.MeshPhysicalMaterial({ color: RED, roughness: 0.12, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.4 }), []);
   let form: React.ReactNode = null;
   if (s.type === "monolith") form = <mesh position={[0, 1.7, 0]} rotation={[0, 0.12, 0.05]} material={travertine} castShadow><boxGeometry args={[0.9, 3.4, 0.42]} /></mesh>;
   else if (s.type === "bust") form = (<group>
@@ -394,11 +416,12 @@ function Scene({ onActive, activeId, low }: { onActive: (e: Exhibit | null) => v
       <directionalLight position={[6, 11, 4]} intensity={0.55} color="#fff6ec" castShadow={!low} shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
 
       {/* Iluminación basada en imagen (procedural, sin red) → reflejos realistas */}
-      <Environment resolution={128} frames={1} environmentIntensity={0.4}>
-        <Lightformer intensity={1.4} position={[0, 7, -12]} rotation={[Math.PI / 2, 0, 0]} scale={[18, 10, 1]} color="#fff4e6" />
-        <Lightformer intensity={0.8} position={[0, 4, 8]} scale={[16, 8, 1]} color="#ffffff" />
-        <Lightformer intensity={0.5} position={[-16, 4, -11]} rotation={[0, Math.PI / 2, 0]} scale={[10, 6, 1]} color="#ffffff" />
-        <Lightformer intensity={0.5} position={[16, 4, -11]} rotation={[0, -Math.PI / 2, 0]} scale={[10, 6, 1]} color="#ffffff" />
+      <Environment resolution={256} frames={1} environmentIntensity={0.85}>
+        <Lightformer intensity={2.2} position={[0, 7, -12]} rotation={[Math.PI / 2, 0, 0]} scale={[20, 12, 1]} color="#fff4e6" />
+        <Lightformer intensity={1.4} position={[0, 4, 9]} scale={[18, 9, 1]} color="#ffffff" />
+        <Lightformer intensity={1} position={[-16, 4, -11]} rotation={[0, Math.PI / 2, 0]} scale={[12, 7, 1]} color="#ffffff" />
+        <Lightformer intensity={1} position={[16, 4, -11]} rotation={[0, -Math.PI / 2, 0]} scale={[12, 7, 1]} color="#ffffff" />
+        <Lightformer intensity={0.6} position={[0, -2, -11]} rotation={[-Math.PI / 2, 0, 0]} scale={[20, 20, 1]} color="#d9d4c8" />
       </Environment>
 
       <Architecture low={low} />
@@ -407,7 +430,7 @@ function Scene({ onActive, activeId, low }: { onActive: (e: Exhibit | null) => v
       {sculptures.map((s, i) => <Sculpture key={`s${i}`} s={s} />)}
       <Suspense fallback={null}>
         {wallArt.map((a, i) => <Artwork key={i} art={a} />)}
-        {exhibits.map((e) => <Vitrine key={e.id} exhibit={e} active={activeId === e.id} />)}
+        {exhibits.map((e) => <Vitrine key={e.id} exhibit={e} active={activeId === e.id} low={low} />)}
         <Preload all />
       </Suspense>
       {low ? (
