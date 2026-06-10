@@ -110,7 +110,7 @@ export default function Page() {
           <div className="pointer-events-none absolute bottom-5 left-1/2 z-10 -translate-x-1/2 text-center">
             <p className="kicker text-[var(--paper)]/55">
               <span className="hidden md:inline">Clic para mirar · WASD caminar · Shift correr · E añadir · B bolsa</span>
-              <span className="md:hidden">Arrastra para mirar el museo</span>
+              <span className="md:hidden">Arrastra para mirar · toca los círculos del piso para moverte</span>
             </p>
           </div>
           <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--paper)]/40" />

@@ -76,7 +76,7 @@ export const exhibits: Exhibit[] = [
 
 // Esculturas (arte 3D, no comprables) — dan cuerpo y rompen la simetría del museo.
 export type Sculpture = {
-  type: "monolith" | "bust" | "knot" | "stone" | "orb";
+  type: "monolith" | "bust" | "knot" | "stone" | "ovoid" | "totem";
   pos: [number, number];
   scale?: number;
   rotY?: number;
@@ -85,11 +85,11 @@ export type Sculpture = {
 };
 export const sculptures: Sculpture[] = [
   { type: "monolith", pos: [-1.5, -11.5], scale: 1.05, rotY: 0.5, light: true, label: "Sin título (Familia)" },
-  { type: "stone", pos: [5.5, -19], scale: 1, rotY: 0.9 },
+  { type: "totem", pos: [5.5, -19], scale: 1, rotY: 0.4, label: "Tótem doméstico" },
   { type: "bust", pos: [-16, -15.5], scale: 1, rotY: -0.5, light: true, label: "Retrato anónimo" },
-  { type: "knot", pos: [16.5, -6.5], scale: 1, rotY: 0.3, light: true },
-  { type: "orb", pos: [-5, -31], scale: 0.9, rotY: 0 },
-  { type: "orb", pos: [5, -31], scale: 0.9, rotY: 1.2 },
+  { type: "knot", pos: [16.5, -6.5], scale: 1, rotY: 0.3, light: true, label: "Lazo" },
+  { type: "ovoid", pos: [-5, -31], scale: 0.95, rotY: 0, light: true, label: "Semilla" },
+  { type: "stone", pos: [5, -31], scale: 0.95, rotY: 1.2 },
 ];
 
 // Cuadros (fotografías de archivo) colgados en los muros — ambientales, no comprables.
