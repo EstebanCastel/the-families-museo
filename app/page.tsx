@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { exhibits, type Exhibit } from "@/lib/products";
 
 const Museum = dynamic(() => import("@/components/Museum"), { ssr: false, loading: () => null });
+const LoadingOverlay = dynamic(() => import("@/components/LoadingOverlay"), { ssr: false, loading: () => null });
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -81,6 +82,7 @@ export default function Page() {
   return (
     <main className="relative h-[100svh] w-full overflow-hidden bg-black">
       {entered && <Museum onActive={setActive} activeId={active?.id ?? null} />}
+      {entered && <LoadingOverlay />}
 
       {/* Pantalla de entrada */}
       <AnimatePresence>

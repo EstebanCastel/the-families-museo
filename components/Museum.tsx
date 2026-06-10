@@ -7,6 +7,8 @@ import {
   Text,
   SpotLight,
   MeshReflectorMaterial,
+  Environment,
+  Lightformer,
   Preload,
   AdaptiveDpr,
   AdaptiveEvents,
@@ -15,6 +17,7 @@ import {
 import { EffectComposer, Bloom, Vignette, SMAA } from "@react-three/postprocessing";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import gsap from "gsap";
 import { exhibits, wallArt, sculptures, type Exhibit, type Sculpture as SculptureT } from "@/lib/products";
 
 const H = 6;
@@ -363,9 +366,22 @@ function Signage() {
     </group>
   );
 }
+function Intro({ onDone }: { onDone: () => void }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    camera.position.set(0, 2.1, -0.6);
+    camera.lookAt(0, 1.7, -16);
+    const tl = gsap.timeline({ onComplete: onDone });
+    tl.to(camera.position, { z: -8, y: 1.65, duration: 3.4, ease: "power2.inOut" });
+    return () => { tl.kill(); };
+  }, [camera, onDone]);
+  return null;
+}
+
 function Scene({ onActive, activeId, low }: { onActive: (e: Exhibit | null) => void; activeId: string | null; low: boolean }) {
   const { scene, camera } = useThree();
   const targetRef = useRef<THREE.Vector3 | null>(null);
+  const [ready, setReady] = useState(low); // móvil: listo de inmediato; escritorio: tras la intro
   useEffect(() => {
     scene.fog = new THREE.FogExp2(FOG, 0.013);
     scene.background = new THREE.Color(FOG);
@@ -373,9 +389,18 @@ function Scene({ onActive, activeId, low }: { onActive: (e: Exhibit | null) => v
   }, [scene, camera]);
   return (
     <>
-      <ambientLight intensity={0.6} color="#eef0f4" />
-      <hemisphereLight args={["#ffffff", "#9c9488", 0.65]} />
-      <directionalLight position={[6, 11, 4]} intensity={0.5} color="#fff6ec" castShadow={!low} shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
+      <ambientLight intensity={0.7} color="#eef0f4" />
+      <hemisphereLight args={["#ffffff", "#9c9488", 0.7]} />
+      <directionalLight position={[6, 11, 4]} intensity={0.55} color="#fff6ec" castShadow={!low} shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} />
+
+      {/* Iluminación basada en imagen (procedural, sin red) → reflejos realistas */}
+      <Environment resolution={128} frames={1} environmentIntensity={0.4}>
+        <Lightformer intensity={1.4} position={[0, 7, -12]} rotation={[Math.PI / 2, 0, 0]} scale={[18, 10, 1]} color="#fff4e6" />
+        <Lightformer intensity={0.8} position={[0, 4, 8]} scale={[16, 8, 1]} color="#ffffff" />
+        <Lightformer intensity={0.5} position={[-16, 4, -11]} rotation={[0, Math.PI / 2, 0]} scale={[10, 6, 1]} color="#ffffff" />
+        <Lightformer intensity={0.5} position={[16, 4, -11]} rotation={[0, -Math.PI / 2, 0]} scale={[10, 6, 1]} color="#ffffff" />
+      </Environment>
+
       <Architecture low={low} />
       <Signage />
       <Skylight x={0} z={-7} shadow={false} /><Skylight x={0} z={-15} shadow={false} /><Skylight x={0} z={-29} shadow={false} />
@@ -392,8 +417,14 @@ function Scene({ onActive, activeId, low }: { onActive: (e: Exhibit | null) => v
         </>
       ) : (
         <>
-          <Player onActive={onActive} />
-          <PointerLockControls makeDefault />
+          {ready ? (
+            <>
+              <Player onActive={onActive} />
+              <PointerLockControls makeDefault />
+            </>
+          ) : (
+            <Intro onDone={() => setReady(true)} />
+          )}
           <EffectComposer multisampling={0}>
             <Bloom luminanceThreshold={0.72} luminanceSmoothing={0.3} intensity={0.55} mipmapBlur radius={0.6} />
             <Vignette offset={0.32} darkness={0.5} eskil={false} />
@@ -411,7 +442,12 @@ export default function Museum({ onActive, activeId }: { onActive: (e: Exhibit |
   const [low, setLow] = useState(false);
   useEffect(() => { setLow(window.matchMedia("(pointer: coarse)").matches || navigator.hardwareConcurrency <= 4); }, []);
   return (
-    <Canvas shadows={!low} dpr={low ? [1, 1.4] : [1, 1.8]} gl={{ antialias: false, powerPreference: "high-performance" }} camera={{ fov: 72, near: 0.1, far: 140 }}>
+    <Canvas
+      shadows={!low}
+      dpr={low ? [1, 1.4] : [1, 1.8]}
+      gl={{ antialias: false, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
+      camera={{ fov: 72, near: 0.1, far: 140 }}
+    >
       <Scene onActive={onActive} activeId={activeId} low={low} />
     </Canvas>
   );
